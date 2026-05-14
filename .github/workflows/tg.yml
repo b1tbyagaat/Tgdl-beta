@@ -1,10 +1,10 @@
-name: Telegram Downloader
+name: Telegram Downloader (No Bot)
 
 on:
   workflow_dispatch:
     inputs:
       links:
-        description: "Paste Telegram links (one per line)"
+        description: "Telegram links (one per line)"
         required: true
 
 jobs:
@@ -15,22 +15,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install yt-dlp
-        run: pip install yt-dlp
+      - name: Install gallery-dl
+        run: pip install gallery-dl
 
-      - name: Download files
+      - name: Save links
         run: |
-          mkdir downloads
-
           echo "${{ github.event.inputs.links }}" > links.txt
+          mkdir out
 
+      - name: Download
+        run: |
           while read url
           do
-            yt-dlp -P downloads "$url"
+            gallery-dl -D out "$url"
           done < links.txt
+
+      - name: Zip output
+        run: zip -r result.zip out
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: telegram-files
-          path: downloads
+          name: telegram-download
+          path: result.zip
