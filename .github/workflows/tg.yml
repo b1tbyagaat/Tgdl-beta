@@ -1,10 +1,10 @@
-name: Telegram Downloader (No Bot)
+name: Multi Telegram Downloader
 
 on:
   workflow_dispatch:
     inputs:
       links:
-        description: "Telegram links (one per line)"
+        description: "Paste links separated by space or new line"
         required: true
 
 jobs:
@@ -12,29 +12,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install gallery-dl
-        run: pip install gallery-dl
+      - name: Install yt-dlp
+        run: pip install yt-dlp
 
-      - name: Save links
+      - name: Prepare input + download
         run: |
-          echo "${{ github.event.inputs.links }}" > links.txt
           mkdir out
 
-      - name: Download
-        run: |
+          # تبدیل اسپیس و خط جدید به خط جدا
+          echo "${{ github.event.inputs.links }}" | tr ' ' '\n' > links.txt
+
           while read url
           do
-            gallery-dl -D out "$url"
+            if [ -n "$url" ]; then
+              yt-dlp -f "best" -o "out/%(title)s.%(ext)s" "$url"
+            fi
           done < links.txt
 
-      - name: Zip output
-        run: zip -r result.zip out
+      - name: Zip files
+        run: zip -r files.zip out
 
-      - name: Upload artifact
+      - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: telegram-download
-          path: result.zip
+          name: telegram-files
+          path: files.zip
