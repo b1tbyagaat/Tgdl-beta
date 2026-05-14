@@ -1,10 +1,10 @@
-name: Multi Telegram Downloader
+name: Smart Telegram Downloader
 
 on:
   workflow_dispatch:
     inputs:
       links:
-        description: "Paste links separated by space or new line"
+        description: "Paste Telegram links (space or newline separated)"
         required: true
 
 jobs:
@@ -17,25 +17,53 @@ jobs:
       - name: Install yt-dlp
         run: pip install yt-dlp
 
-      - name: Prepare input + download
+      - name: Prepare
         run: |
           mkdir out
-
-          # تبدیل اسپیس و خط جدید به خط جدا
           echo "${{ github.event.inputs.links }}" | tr ' ' '\n' > links.txt
+
+      - name: Download safely (skip failures)
+        run: |
+          success=0
+          failed=0
 
           while read url
           do
-            if [ -n "$url" ]; then
-              yt-dlp -f "best" -o "out/%(title)s.%(ext)s" "$url"
+            if [ -z "$url" ]; then
+              continue
             fi
+
+            echo "Trying: $url"
+
+            if yt-dlp \
+              -f "best" \
+              --no-part \
+              --no-warnings \
+              -o "out/%(title)s.%(ext)s" \
+              "$url"
+            then
+              echo "OK: $url"
+              success=$((success+1))
+            else
+              echo "FAILED (skipped): $url"
+              failed=$((failed+1))
+            fi
+
           done < links.txt
 
-      - name: Zip files
-        run: zip -r files.zip out
+          echo "Done. Success=$success Failed=$failed"
 
-      - name: Upload result
+      - name: Create ZIP (only if files exist)
+        run: |
+          if [ "$(ls -A out 2>/dev/null)" ]; then
+            zip -r result.zip out
+          else
+            echo "No files downloaded"
+            touch result.zip
+          fi
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: telegram-files
-          path: files.zip
+          name: telegram-download
+          path: result.zip
